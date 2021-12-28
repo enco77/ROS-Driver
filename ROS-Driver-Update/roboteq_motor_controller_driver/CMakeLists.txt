@@ -61,6 +61,8 @@ add_service_files(
    config_srv.srv
    command_srv.srv
    maintenance_srv.srv
+   emergency_stop_srv.srv
+   safety_stop_srv.srv
 #   Service2.srv
  )
 
@@ -155,34 +157,6 @@ add_executable(roboteq_motor_controller_driver_node
 add_dependencies(roboteq_motor_controller_driver_node  roboteq_motor_controller_driver_generate_messages_cpp)
 
 target_link_libraries(roboteq_motor_controller_driver_node
-  ${catkin_LIBRARIES}
-)
-
-add_executable(config_client
- src/config_client.cpp)
-
- add_dependencies(config_client  roboteq_motor_controller_driver_generate_messages_cpp)
-
-target_link_libraries(config_client
-  ${catkin_LIBRARIES}
-)
-
-add_executable(command_client
- src/command_client.cpp)
-
- add_dependencies(command_client  roboteq_motor_controller_driver_generate_messages_cpp)
-
-target_link_libraries(command_client
-  ${catkin_LIBRARIES}
-)
-
-
-add_executable(maintenance_client
- src/maintenance_client.cpp)
-
- add_dependencies(maintenance_client  roboteq_motor_controller_driver_generate_messages_cpp)
-
-target_link_libraries(maintenance_client
   ${catkin_LIBRARIES}
 )
 

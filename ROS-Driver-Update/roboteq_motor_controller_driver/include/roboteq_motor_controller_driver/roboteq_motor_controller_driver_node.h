@@ -1,91 +1,80 @@
 #ifndef ROBOTEQ_MOTOR_CONTROLLER_DRIVER_MAIN_H
 #define ROBOTEQ_MOTOR_CONTROLLER_DRIVER_MAIN_H
 
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/trim.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/classification.hpp>
+#include <serial/serial.h>
 #include <ros/ros.h>
-#include <tf/tf.h>
-#include <ros/ros.h>
-#include <tf/tf.h>
-
-//! ROS standard msgs
-#include <geometry_msgs/Quaternion.h>
-#include <geometry_msgs/Vector3Stamped.h>
-#include <sensor_msgs/Imu.h>
-#include <sensor_msgs/NavSatFix.h>
-#include <sensor_msgs/Joy.h>
-#include <sensor_msgs/TimeReference.h>
-#include <sensor_msgs/BatteryState.h>
-#include <sensor_msgs/Image.h>
-#include <std_msgs/UInt8.h>
-#include <std_msgs/Int16.h>
-#include <std_msgs/Float32.h>
+#include <iostream>
+#include <algorithm>
+#include <sstream>
+#include <typeinfo>
 #include <std_msgs/String.h>
-#include <tf/tf.h>
-#include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Twist.h>
-#include <tf/transform_broadcaster.h>
-#include <nav_msgs/Odometry.h>
 #include <roboteq_motor_controller_driver/channel_values.h>
 #include <roboteq_motor_controller_driver/config_srv.h>
 #include <roboteq_motor_controller_driver/command_srv.h>
 #include <roboteq_motor_controller_driver/maintenance_srv.h>
-#include <serial/serial.h>
-#include <roboteq_motor_controller_driver/querylist.h>
-#include <boost/algorithm/string/regex.hpp>
-#include <boost/regex.hpp>
+#include <roboteq_motor_controller_driver/emergency_stop_srv.h>
+#include <roboteq_motor_controller_driver/safety_stop_srv.h>
 
 namespace roboteq{
 
-class Driver
+class RoboteqDriver
 {
-public: 
-	//Driver(ros::NodeHandle& nh);
-	//Driver();
-	//~Driver();
+public:
+	// RoboteqDriver()
+	// {
+	// 	initialize(); //constructor - Initialize
+	// }
+	serial::Serial ser;
+	void initialize();
+	void run();
+	void connect();
+
+	// ~RoboteqDriver()
+	// {
+	// 	if (ser.isOpen())
+	// 	{
+	// 		ser.close();
+	// 	}
+	// }
+private:
+
+	int frequency;
+	float wheelbase;
+	float radius;
+	float gearRatio;
+	float maxRPM;
+	int baud_rate;
+	int32_t baud;
+	std::string port;
+	void cmd_vel_callback(const geometry_msgs::Twist& msg);
+	double calculate_right_speed(double x, double z);
+	double calculate_left_speed(double x, double z);
+	double to_rpm(double value);
+	double max_limit(double speed);
+
 	ros::Subscriber cmd_vel_sub;
 	ros::Publisher read_publisher;
-	
 	ros::ServiceServer configsrv;
 	ros::ServiceServer commandsrv;
-	ros::ServiceServer maintenancesrv;	
-	//ros::ServiceClient configsrv_client;
-	//void diff_drive(int speed1, int speed2, float wheel_rad, float wheel_dist, int encoder_coef);
-	//void cmd_vel_callback(sensor_msgs::Joy::ConstPtr& msg);
-	void connect();
-	void run();
-	void roboteq_subscriber();
-	void roboteq_publisher();
-	void cmd_vel_callback(const geometry_msgs::Twist& msg);
-	//void initSub();
-	
-	
-	int channel_number_1;
-	int channel_number_2;
-	int frequencyH;
-	int frequencyL;
-	int frequencyG;
-	
-	
-	
-	
-	void roboteq_services();
-	bool configservice(roboteq_motor_controller_driver::config_srv::Request& req,     	roboteq_motor_controller_driver::config_srv::Response& res);
-	
-	bool commandservice(roboteq_motor_controller_driver::command_srv::Request& req,     	roboteq_motor_controller_driver::command_srv::Response& res);
-	
-	bool maintenanceservice(roboteq_motor_controller_driver::maintenance_srv::Request& req,     	roboteq_motor_controller_driver::maintenance_srv::Response& res);
-	
-	
-private:
-	int baud_rate;
-	std::string port;
-	std::string firmware;
-	int channel;
-	
-	
-geometry_msgs::TransformStamped tf_msg;
-tf::TransformBroadcaster odom_broadcaster;
-nav_msgs::Odometry odom_msg;
-    nav_msgs::Odometry odom;
+	ros::ServiceServer maintenancesrv;
+	ros::ServiceServer emergencysrv;
+	ros::ServiceServer safetystopsrv;
+	ros::ServiceServer multicommandsrv;
+
+	bool configservice(roboteq_motor_controller_driver::config_srv::Request& request,     	roboteq_motor_controller_driver::config_srv::Response& response);
+	bool commandservice(roboteq_motor_controller_driver::command_srv::Request& request,     	roboteq_motor_controller_driver::command_srv::Response& response);
+	bool multicommandservice(roboteq_motor_controller_driver::command_srv::Request& request,     	roboteq_motor_controller_driver::command_srv::Response& response);
+	bool maintenanceservice(roboteq_motor_controller_driver::maintenance_srv::Request& request,     	roboteq_motor_controller_driver::maintenance_srv::Response& response);
+	bool emergencystopservice(roboteq_motor_controller_driver::emergency_stop_srv::Request &request, roboteq_motor_controller_driver::emergency_stop_srv::Response &response);
+	bool safetystopservice(roboteq_motor_controller_driver::safety_stop_srv::Request &request, roboteq_motor_controller_driver::safety_stop_srv::Response &response);
+	void initialize_services();
+
 
 	enum fault_flag
 	{
@@ -99,9 +88,20 @@ nav_msgs::Odometry odom_msg;
 	MOSFET_FAILURE = 64,
 	STARTUP_CONFIG_FAULT = 128,
 	};
-	
-		
-};	
-}	
+
+	enum status_flag
+	{
+	No_Fault = 0,
+	Amps_Limit = 1,
+	Motor_Stalled = 2,
+	Loop_Error = 4,
+	Safety_Stop = 8,
+	Forward_Limit = 16,
+	Reverse_Limit = 32,
+	Amps_Trigger = 64,
+	};
+
+};
+}
 #endif // ROBOTEQ_MOTOR_CONTROLLER_DRIVER_MAIN_H
-	
+

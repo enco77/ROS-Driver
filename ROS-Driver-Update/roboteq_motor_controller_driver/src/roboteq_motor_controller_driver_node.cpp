@@ -1,25 +1,4 @@
-// #include <roboteq_motor_controller_driver/roboteq_motor_controller_driver_node.h>
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string/split.hpp>
-
-#include <boost/algorithm/string/trim.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/classification.hpp>
-#include <serial/serial.h>
-#include <ros/ros.h>
-#include <std_msgs/String.h>
-#include <std_msgs/Empty.h>
-#include <iostream>
-#include <sstream>
-#include <typeinfo>
-#include <roboteq_motor_controller_driver/querylist.h>
-#include <geometry_msgs/Twist.h>
-#include <nav_msgs/Odometry.h>
-#include <roboteq_motor_controller_driver/channel_values.h>
-#include <roboteq_motor_controller_driver/config_srv.h>
-#include <roboteq_motor_controller_driver/command_srv.h>
-#include <roboteq_motor_controller_driver/maintenance_srv.h>
-
+#include <roboteq_motor_controller_driver/roboteq_motor_controller_driver_node.h>
 class RoboteqDriver
 {
 public:
@@ -36,36 +15,36 @@ public:
 		}
 	}
 
-private:
 	serial::Serial ser;
 	std::string port;
 	int32_t baud;
 	ros::Publisher read_publisher;
 	ros::Subscriber cmd_vel_sub;
 
-	int channel_number_1;
-	int channel_number_2;
-	int frequencyH;
-	int frequencyL;
-	int frequencyG;
-	ros::NodeHandle nh;
+	int frequency;
+	float wheelbase;
+	float radius;
+	float gearRatio;
+	float maxRPM;
+	ros::NodeHandle nh = ros::NodeHandle("~");
 
 	void initialize()
 	{
 
 		nh.getParam("port", port);
 		nh.getParam("baud", baud);
+		nh.getParam("wheelbase", wheelbase);
+		nh.getParam("radius", radius);
+		nh.getParam("gear_ratio", gearRatio);
+		nh.getParam("max_rpm", maxRPM);
 		cmd_vel_sub = nh.subscribe("/cmd_vel", 10, &RoboteqDriver::cmd_vel_callback, this);
-
 		connect();
 	}
 
 	void connect()
 	{
-
 		try
 		{
-
 			ser.setPort(port);
 			ser.setBaudrate(baud); //get baud as param
 			serial::Timeout to = serial::Timeout::simpleTimeout(1000);
@@ -77,16 +56,13 @@ private:
 
 			ROS_ERROR_STREAM("Unable to open port ");
 			ROS_INFO_STREAM("Unable to open port");
-			;
 		}
 		if (ser.isOpen())
 		{
-
 			ROS_INFO_STREAM("Serial Port initialized\"");
 		}
 		else
 		{
-			// ROS_INFO_STREAM("HI4");
 			ROS_INFO_STREAM("Serial Port is not open");
 		}
 		run();
@@ -94,81 +70,161 @@ private:
 
 	void cmd_vel_callback(const geometry_msgs::Twist &msg)
 	{
-		std::stringstream cmd_sub;
-		cmd_sub << "!G 1"
-				<< " " << msg.linear.x << "_"
-				<< "!G 2"
-				<< " " << msg.angular.z << "_";
-
-		ser.write(cmd_sub.str());
+		std::stringstream mcommands;
+		mcommands << "!S 1"
+				<< " " << to_rpm(calculate_right_speed(msg.linear.x, msg.angular.z)) << "_"
+				<< "!S 2"
+				<< " " << to_rpm(calculate_left_speed(msg.linear.x, msg.angular.z)) << "_";
+		ser.write(mcommands.str());
 		ser.flush();
-		ROS_INFO_STREAM(cmd_sub.str());
+		// ROS_INFO_STREAM(mcommands.str());
 	}
 
-	ros::NodeHandle n;
+	double calculate_right_speed(double x, double z)
+	{
+		return (2 * x + z * wheelbase) / (2 * radius);
+	}
+
+	double calculate_left_speed(double x, double z)
+	{
+		return (z * wheelbase - 2 * x ) / (2 * radius);
+	}
+
+	double to_rpm(double value)
+	{
+
+		return max_limit((value * 60 * gearRatio) / (2 * M_PI));
+	}
+
+	double max_limit(double speed)
+	{
+		if (speed > 0)
+		{
+			return std::min<double>(maxRPM, speed);
+		}
+		else return std::max<double>(-maxRPM, speed);
+	}
+
 	ros::ServiceServer configsrv;
 	ros::ServiceServer commandsrv;
+	ros::ServiceServer multicommandsrv;
 	ros::ServiceServer maintenancesrv;
+	ros::ServiceServer emergencysrv;
+	ros::ServiceServer safetystopsrv;
+
 
 	bool configservice(roboteq_motor_controller_driver::config_srv::Request &request, roboteq_motor_controller_driver::config_srv::Response &response)
 	{
+		int res = 0;
 		std::stringstream str;
 		str << "^" << request.userInput << " " << request.channel << " " << request.value << "_ "
 			<< "%\clsav321654987";
-		ser.write(str.str());
+		res = ser.write(str.str());
+		response.result = (res == str.str().size());
 		ser.flush();
-		response.result = str.str();
-
-		ROS_INFO_STREAM(response.result);
+		// ROS_INFO_STREAM(response.result);
 		return true;
 	}
 
 	bool commandservice(roboteq_motor_controller_driver::command_srv::Request &request, roboteq_motor_controller_driver::command_srv::Response &response)
 	{
+		int res = 0;
 		std::stringstream str;
 		str << "!" << request.userInput << " " << request.channel << " " << request.value << "_";
-		ser.write(str.str());
+		res = ser.write(str.str());
+		response.result = (res == str.str().size());
 		ser.flush();
-		response.result = str.str();
+		// ROS_INFO_STREAM(response.result);
+		return true;
+	}
 
-		ROS_INFO_STREAM(response.result);
+	bool multicommandservice(roboteq_motor_controller_driver::command_srv::Request &request, roboteq_motor_controller_driver::command_srv::Response &response)
+	{
+		int res = 0;
+		std::stringstream str;
+		str << "!" << request.userInput << " " << "1" << " " << request.value << "_" << "!" << request.userInput << " " << "2" << " " << request.value << "_";
+		res = ser.write(str.str());
+		response.result = (res == str.str().size());
+		ser.flush();
+		// ROS_INFO_STREAM(response.result);
 		return true;
 	}
 
 	bool maintenanceservice(roboteq_motor_controller_driver::maintenance_srv::Request &request, roboteq_motor_controller_driver::maintenance_srv::Response &response)
 	{
+		int res = 0;
 		std::stringstream str;
 		str << "%" << request.userInput << " "
 			<< "_";
-		ser.write(str.str());
+		res = ser.write(str.str());
+		response.result = (res == str.str().size());
 		ser.flush();
-		response.result = ser.read(ser.available());
-
-		ROS_INFO_STREAM(response.result);
+		// ROS_INFO_STREAM(response.result);
 		return true;
 	}
 
+	bool emergencystopservice(roboteq_motor_controller_driver::emergency_stop_srv::Request &request, roboteq_motor_controller_driver::emergency_stop_srv::Response &response)
+	{
+		int res = 0;
+		std::stringstream str;
+		if (request.state)
+		{
+			str << "!" << "EX" << "_";
+		}
+		else
+		{
+			str << "!" << "MG" << "_";
+		}
+		res = ser.write(str.str());
+		response.result = (res == str.str().size());
+		ser.flush();
+		// ROS_INFO_STREAM(response.result);
+		return true;
+	}
+
+	bool safetystopservice(roboteq_motor_controller_driver::safety_stop_srv::Request &request, roboteq_motor_controller_driver::safety_stop_srv::Response &response)
+	{
+		int res = 0;
+		std::stringstream str;
+		if (request.state)
+		{
+			str << "!" << "SFT 1" << "_" << "!" << "SFT 2" << "_";
+		}
+		else
+		{
+			for (int i=0; i<10; i++)
+			{
+				str << "!S 1 0" << "_" << "!S 2 0" << "_";
+				sleep(0.1);
+			}
+		}
+		res = ser.write(str.str());
+		response.result = (res == str.str().size());
+		ser.flush();
+		// ROS_INFO_STREAM(response.result);
+		return true;
+	}
+
+
 	void initialize_services()
 	{
-		n = ros::NodeHandle();
-		configsrv = n.advertiseService("config_service", &RoboteqDriver::configservice, this);
-		commandsrv = n.advertiseService("command_service", &RoboteqDriver::commandservice, this);
-		maintenancesrv = n.advertiseService("maintenance_service", &RoboteqDriver::maintenanceservice, this);
+		configsrv = nh.advertiseService("config_service", &RoboteqDriver::configservice, this);
+		commandsrv = nh.advertiseService("command_service", &RoboteqDriver::commandservice, this);
+		multicommandsrv = nh.advertiseService("dualchannel_command_service", &RoboteqDriver::multicommandservice, this);
+		maintenancesrv = nh.advertiseService("maintenance_service", &RoboteqDriver::maintenanceservice, this);
+		emergencysrv = nh.advertiseService("emergency_stop_service", &RoboteqDriver::emergencystopservice, this);
+		safetystopsrv = nh.advertiseService("safety_stop_service", &RoboteqDriver::safetystopservice, this);
 	}
 
 	void run()
 	{
 		initialize_services();
 		std_msgs::String str1;
-		ros::NodeHandle nh;
-		nh.getParam("frequencyH", frequencyH);
-		nh.getParam("frequencyL", frequencyL);
-		nh.getParam("frequencyG", frequencyG);
-
+		nh.getParam("frequency", frequency);
 		typedef std::string Key;
 		typedef std::string Val;
 		std::map<Key, Val> map_sH;
-		nh.getParam("queryH", map_sH);
+		nh.getParam("query", map_sH);
 
 		std::stringstream ss0;
 		std::stringstream ss1;
@@ -188,14 +244,13 @@ private:
 
 			ss1 << VH << "_";
 		}
-		ss1 << "# " << frequencyH << "_";
-
+		ss1 << "# " << frequency << "_";
+		// ROS_INFO_STREAM(ss1.str());
 		std::vector<ros::Publisher> publisherVecH;
 		for (int i = 0; i < KH_vector.size(); i++)
 		{
 			publisherVecH.push_back(nh.advertise<roboteq_motor_controller_driver::channel_values>(KH_vector[i], 100));
 		}
-
 		ser.write(ss0.str());
 		ser.write(ss1.str());
 		ser.write(ss2.str());
@@ -252,7 +307,6 @@ private:
 								if (count > 10)
 								{
 									ROS_INFO_STREAM("Garbage data on Serial");
-									//std::cerr << e.what() << '\n';
 								}
 							}
 						}
@@ -269,10 +323,7 @@ private:
 int main(int argc, char **argv)
 {
 	ros::init(argc, argv, "roboteq_motor_controller_driver");
-
 	RoboteqDriver driver;
-
 	ros::waitForShutdown();
-
 	return 0;
 }
