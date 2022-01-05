@@ -87,7 +87,7 @@ public:
 
 	double calculate_left_speed(double x, double z)
 	{
-		return (z * wheelbase - 2 * x ) / (2 * radius);
+		return (2 * x - z * wheelbase) / (2 * radius);
 	}
 
 	double to_rpm(double value)

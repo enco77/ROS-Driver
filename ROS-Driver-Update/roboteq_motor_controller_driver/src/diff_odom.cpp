@@ -233,7 +233,7 @@ void Odometry_calc::encoderCb(const roboteq_motor_controller_driver::channel_val
 {
 
 	double l_enc = ticks.value[0];
-	double r_enc = -ticks.value[1];
+	double r_enc = ticks.value[1];
 
 	if((l_enc < encoder_low_wrap) && (prev_lencoder > encoder_high_wrap))
 	{
