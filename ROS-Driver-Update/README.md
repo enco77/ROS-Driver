@@ -47,7 +47,7 @@ query:
 
 ```
 For Odometry paramaters , you can change  base_frame , odom_frame, encoder_topic_name, command_srv (for restart odom status) and etc
-'''
+```
 base_frame: "base_link"
 odom_frame: "odom"
 encoder_topic_name: "/roboteq_motor_controller_driver/encoder_count"
@@ -59,4 +59,4 @@ rate: 5              # Publish rate of odom topic
 ppr: 1024            # Pulse per revolution of encoder
 encoder_max: 65536   # Max count of encoder 
 encoder_min: -65536  # Min count of encoder
-'''
+```
