@@ -46,7 +46,7 @@ query:
 
 
 ```
-For Odometry paramaters , you can change  base_frame , odom_frame, encoder_topic_name, command_srv (for restart odom status) and etc
+For Odometry paramaters , you can change  base_frame , odom_frame, encoder_topic_name, command_srv (for restart odom status) and etc. For that go to config/odom_conf.yaml
 ```
 base_frame: "base_link"
 odom_frame: "odom"
