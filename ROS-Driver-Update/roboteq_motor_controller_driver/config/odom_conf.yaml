@@ -1,0 +1,8 @@
+encoder_topic_name: "/roboteq_motor_controller_driver/encoder_count"
+gear_ratio: 24.69
+radius: 0.105
+wheelbase: 1.0
+rate: 5
+ppr: 1024
+encoder_max: 65536
+encoder_min: -65536

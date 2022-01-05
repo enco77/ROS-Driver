@@ -37,7 +37,7 @@ public:
 		nh.getParam("radius", radius);
 		nh.getParam("gear_ratio", gearRatio);
 		nh.getParam("max_rpm", maxRPM);
-		cmd_vel_sub = nh.subscribe("/cmd_vel", 10, &RoboteqDriver::cmd_vel_callback, this);
+		cmd_vel_sub = nh.subscribe("cmd_vel", 10, &RoboteqDriver::cmd_vel_callback, this);
 		connect();
 	}
 

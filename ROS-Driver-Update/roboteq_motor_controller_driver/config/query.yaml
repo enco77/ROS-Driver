@@ -4,17 +4,12 @@ wheelbase: 1.0
 radius: 0.105
 gear_ratio: 24.69
 max_rpm: 2650.0
-frequency : 50   #higher frequency (value is in ms)
+frequency : 50
 
 query:
-#  motor_amps : "?A"
-#  motor_command : "?M"
  encoder_count : "?C"
  encoder_speed : "?S"
-#  volts : "?V"
  feedback : "?F"
-#  battery_amps : "?BA"
-#  power : "?P"
  fault_flag : "?FF"
  status_flag: "?FM"
 
