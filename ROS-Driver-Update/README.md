@@ -59,4 +59,4 @@ rate: 5              # Publish rate of odom topic
 ppr: 1024            # Pulse per revolution of encoder
 encoder_max: 65536   # Max count of encoder 
 encoder_min: -65536  # Min count of encoder
-
+'''
