@@ -11,7 +11,10 @@ This repository contains the ROS driver for Roboteq controllers. The package req
 
 First, clone this repository to catkin_ws/src 
 ```
-git clone https://github.com/Roboteq-Inc/ROS-Driver.git
+git clone https://github.com/enco77/ROS-Driver.git
+cd catkin_ws/
+rosdep install --from-paths src --ignore-src -r -y
+catkin_make
 ```
 
 The `Roboteq motor controller driver` is the package for the Roboteq ROS-driver. Make sure not to change package name as it will change the definition in the Cmake and Package files. Open new terminal and copy these steps -
@@ -20,30 +23,40 @@ The `Roboteq motor controller driver` is the package for the Roboteq ROS-driver.
 cd catkin_ws/
 source devel/setup.bash
 roslaunch roboteq_motor_controller_driver driver.launch
+roslaunch roboteq_motor_controller_driver diff_odom.launch
 ```
 
-The roboteq driver is designed to be dynamic and users can publish the controller queries as per their requirements. The publishing queries is not limited to any value. By default total 9 queries are published by launching this driver. Users can change or add queries in configuration file. For that go to config/query.yaml
+The roboteq driver is designed to be dynamic and users can publish the controller queries as per their requirements. The publishing queries is not limited to any value. By default total 5 queries are published by launching this driver. Users can change or add queries in configuration file. For that go to config/query.yaml
 
 ```
-frequencyH : 50   #higher frequency (value is in ms)
-frequencyL : 100  #lower frequency
-frequencyG : 100  #frequency for general queries
+port : "/dev/ttyACM0" 
+baud : 115200  
+wheelbase: 1.0     # Distance between 2 wheels
+radius: 0.105      # Radius of wheel
+gear_ratio: 24.69  # Gear Ratio of Motorwheel
+max_rpm: 2650.0    # Maximum speed of motor
+frequency : 50     # frequency
 
-queryH:
- motor_amps : ?A 
- motor_command : ?M
- encoder_count : ?C
- encoder_speed : ?S  #these queries will publish with higher frequency and users can add other queries below encoder_speed.
+query:
+ encoder_count : "?C"  # Read encoder ticks
+ encoder_speed : "?S"  # Read encoder speed
+ feedback : "?F"       # Read speed/position/torque of motor depeds on closed loop parameter
+ fault_flag : "?FF"    # Fault flag status of controller that can occur during operatiom
+ status_flag: "?FM"    # Report the runtime status of each motor
 
-queryL: 
- error : ?E 
- feedback : ?F 
- battery_amps : ?BA
- power : ?P          #these queries will publish with lower frequency and users can add other queries below power.
- 
 
-queryG: 
- fault_flag : ?FF  
-# status_flag : ?FS
-# firmware_id : ?FID  Users can add queries which do not require channel number under queryG tab. 
 ```
+For Odometry paramaters , you can change  base_frame , odom_frame, encoder_topic_name, command_srv (for restart odom status) and etc
+'''
+base_frame: "base_link"
+odom_frame: "odom"
+encoder_topic_name: "/roboteq_motor_controller_driver/encoder_count"
+command_srv: "/roboteq_motor_controller_driver/dualchannel_command_service"
+gear_ratio: 24.69
+radius: 0.105
+wheelbase: 1.0
+rate: 5              # Publish rate of odom topic
+ppr: 1024            # Pulse per revolution of encoder
+encoder_max: 65536   # Max count of encoder 
+encoder_min: -65536  # Min count of encoder
+
