@@ -22,21 +22,21 @@ public:
 	ros::Subscriber cmd_vel_sub;
 
 	int frequency;
-	float wheelbase;
-	float radius;
-	float gearRatio;
-	float maxRPM;
+	double wheelbase;
+	double radius;
+	double gearRatio;
+	double maxRPM;
 	ros::NodeHandle nh = ros::NodeHandle("~");
 
 	void initialize()
 	{
 
-		nh.getParam("port", port);
-		nh.getParam("baud", baud);
-		nh.getParam("wheelbase", wheelbase);
-		nh.getParam("radius", radius);
-		nh.getParam("gear_ratio", gearRatio);
-		nh.getParam("max_rpm", maxRPM);
+		nh.param<std::string>("port", port, "/dev/ttyACM0");
+		nh.param("baud", baud, 115200);
+		nh.param("wheelbase", wheelbase, 1.0);
+		nh.param("radius", radius, 1.0);
+		nh.param("gear_ratio", gearRatio, 1.0);
+		nh.param("max_rpm", maxRPM, 1000.0);
 		cmd_vel_sub = nh.subscribe("cmd_vel", 10, &RoboteqDriver::cmd_vel_callback, this);
 		connect();
 	}

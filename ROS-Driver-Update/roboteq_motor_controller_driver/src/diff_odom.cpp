@@ -7,7 +7,7 @@
 #include <math.h>
 #include <string>
 #include <roboteq_motor_controller_driver/channel_values.h>
-
+#include <roboteq_motor_controller_driver/command_srv.h>
 class Odometry_calc{
 
 public:
@@ -16,7 +16,9 @@ public:
 
 private:
 	ros::NodeHandle nh = ros::NodeHandle("~");
+	ros::ServiceClient command_client;
 	ros::Subscriber sub;
+	roboteq_motor_controller_driver::command_srv command_service;
 	ros::Subscriber l_wheel_sub;
 	ros::Subscriber r_wheel_sub;
 	ros::Subscriber wheels_sub;
@@ -37,6 +39,9 @@ private:
 	double rate;
 	int ppr;
 	std::string encoder_topic;
+	std::string odom_frame;
+	std::string base_frame;
+	std::string command_srv;
 
 
 	ros::Duration t_delta;
@@ -72,14 +77,23 @@ Odometry_calc::Odometry_calc(){
 
 void Odometry_calc::init_variables()
 {
-	nh.getParam("encoder_topic_name", encoder_topic);
-	nh.getParam("gear_ratio", gear_ratio);
-	nh.getParam("radius", radius);
-	nh.getParam("wheelbase", base_width);
-	nh.getParam("rate", rate);
-	nh.getParam("ppr", ppr);
-	nh.getParam("encoder_max", encoder_max);
-	nh.getParam("encoder_min", encoder_min);
+
+	nh.param<std::string>("encoder_topic_name", encoder_topic, "/encoder_count");
+	nh.param("gear_ratio", gear_ratio, 1.0);
+	nh.param("radius", radius, 1.0);
+	nh.param("wheelbase", base_width, 1.0);
+	nh.param("rate", rate, 5.0);
+	nh.param("ppr", ppr, 1024);
+	nh.param("encoder_max", encoder_max, 65536.0);
+	nh.param("encoder_min", encoder_min, -65536.0);
+	nh.param<std::string>("odom_frame", odom_frame, "odom");
+	nh.param<std::string>("base_frame", base_frame, "base_link");
+	nh.param<std::string>("command_srv", command_srv, "/dualchannel_command_service");
+	command_client = nh.serviceClient<roboteq_motor_controller_driver::command_srv>(command_srv);
+	command_service.request.channel = 0;
+	command_service.request.userInput = "C";
+	command_service.request.value = 0;
+	command_client.call(command_service);
 
 	prev_lencoder = 0;
 	prev_rencoder = 0;
@@ -178,8 +192,8 @@ void Odometry_calc::update(){
 		    //first, we'll publish the transform over tf
 		    geometry_msgs::TransformStamped odom_trans;
 		    odom_trans.header.stamp = now;
-		    odom_trans.header.frame_id = "odom";
-		    odom_trans.child_frame_id = "base_link";
+		    odom_trans.header.frame_id = odom_frame;
+		    odom_trans.child_frame_id = base_frame;
 
 		    odom_trans.transform.translation.x = x_final;
 		    odom_trans.transform.translation.y = y_final;
@@ -192,7 +206,7 @@ void Odometry_calc::update(){
 		    //next, we'll publish the odometry message over ROS
 		    nav_msgs::Odometry odom;
 		    odom.header.stamp = now;
-		    odom.header.frame_id = "odom";
+		    odom.header.frame_id = odom_frame;
 
 		    //set the position
 		    odom.pose.pose.position.x = x_final;
@@ -201,7 +215,7 @@ void Odometry_calc::update(){
 		    odom.pose.pose.orientation = odom_quat;
 
 		    //set the velocity
-		    odom.child_frame_id = "base_link";
+		    odom.child_frame_id = base_frame;
 		    odom.twist.twist.linear.x = dx;
 		    odom.twist.twist.linear.y = 0;
 		    odom.twist.twist.angular.z = dr;

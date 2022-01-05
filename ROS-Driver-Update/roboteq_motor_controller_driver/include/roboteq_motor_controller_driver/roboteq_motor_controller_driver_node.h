@@ -45,10 +45,10 @@ public:
 private:
 
 	int frequency;
-	float wheelbase;
-	float radius;
-	float gearRatio;
-	float maxRPM;
+	double wheelbase;
+	double radius;
+	double gearRatio;
+	double maxRPM;
 	int baud_rate;
 	int32_t baud;
 	std::string port;
