@@ -1,4 +1,7 @@
+base_frame: "base_link"
+odom_frame: "odom"
 encoder_topic_name: "/roboteq_motor_controller_driver/encoder_count"
+command_srv: "/roboteq_motor_controller_driver/dualchannel_command_service"
 gear_ratio: 24.69
 radius: 0.105
 wheelbase: 1.0
