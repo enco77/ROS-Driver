@@ -42,6 +42,7 @@ private:
 	std::string odom_frame;
 	std::string base_frame;
 	std::string command_srv;
+	bool publish_tf;
 
 
 	ros::Duration t_delta;
@@ -86,6 +87,7 @@ void Odometry_calc::init_variables()
 	nh.param("ppr", ppr, 1024);
 	nh.param("encoder_max", encoder_max, 65536.0);
 	nh.param("encoder_min", encoder_min, -65536.0);
+	nh.param("publish_tf", publish_tf, false);
 	nh.param<std::string>("odom_frame", odom_frame, "odom");
 	nh.param<std::string>("base_frame", base_frame, "base_link");
 	nh.param<std::string>("command_srv", command_srv, "/dualchannel_command_service");
@@ -190,18 +192,20 @@ void Odometry_calc::update(){
             odom_quat.w = cos( theta_final / 2 );
 
 		    //first, we'll publish the transform over tf
-		    geometry_msgs::TransformStamped odom_trans;
-		    odom_trans.header.stamp = now;
-		    odom_trans.header.frame_id = odom_frame;
-		    odom_trans.child_frame_id = base_frame;
+			if (publish_tf){
+				geometry_msgs::TransformStamped odom_trans;
+				odom_trans.header.stamp = now;
+				odom_trans.header.frame_id = odom_frame;
+				odom_trans.child_frame_id = base_frame;
 
-		    odom_trans.transform.translation.x = x_final;
-		    odom_trans.transform.translation.y = y_final;
-		    odom_trans.transform.translation.z = 0.0;  // 2D Z axis is 0
-		    odom_trans.transform.rotation = odom_quat;
+				odom_trans.transform.translation.x = x_final;
+				odom_trans.transform.translation.y = y_final;
+				odom_trans.transform.translation.z = 0.0;  // 2D Z axis is 0
+				odom_trans.transform.rotation = odom_quat;
 
-		    //send the transform
-		    odom_broadcaster.sendTransform(odom_trans);
+				//send the transform
+				odom_broadcaster.sendTransform(odom_trans);
+			}
 
 		    //next, we'll publish the odometry message over ROS
 		    nav_msgs::Odometry odom;
