@@ -27,6 +27,7 @@ public:
 	double gearRatio;
 	double maxRPM;
 	ros::NodeHandle nh = ros::NodeHandle("~");
+	ros::NodeHandle pnh;
 
 	void initialize()
 	{
@@ -37,7 +38,7 @@ public:
 		nh.param("radius", radius, 1.0);
 		nh.param("gear_ratio", gearRatio, 1.0);
 		nh.param("max_rpm", maxRPM, 1000.0);
-		cmd_vel_sub = nh.subscribe("cmd_vel", 10, &RoboteqDriver::cmd_vel_callback, this);
+		cmd_vel_sub = pnh.subscribe("cmd_vel", 10, &RoboteqDriver::cmd_vel_callback, this);
 		connect();
 	}
 
